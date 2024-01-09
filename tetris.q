@@ -70,8 +70,8 @@ next_piece_grid:{[np;no]
 
 drop_piece:{
   .[`.state.grid;;:;.state.colours`B]each .state.active;
-  .state.active:.state.active+\:1 0; / drop all pieces by one
-  .state.centre:.state.centre+1 0; / drop centre tile by one
+  .state.active:.state.active+\:1 0;
+  .state.centre:.state.centre+1 0;
   if[any .state.colours[`B]<>.state.grid ./:.state.active;
     .state.active:.state.active+\:-1 0;
     if[.state.offset in .state.active[;0];game_over[];:()];
@@ -128,7 +128,6 @@ new_game:{
  };
 
 move:{
-  if[-1 in .state.active[;0];:()]; / do nothing if the player is early
   .[`.state.grid;;:;.state.colours`B]each .state.active;
   e:.state.active where{y=x y}[(min;max)1=x;.state.active[;1]];
   if[all .state.colours[`B]=.state.grid ./:e+\:0,x;
@@ -140,7 +139,6 @@ move:{
  };
 
 slam:{
-  if[-1 in .state.active[;0];:()]; / do nothing if the player is early
   .[`.state.grid;;:;.state.colours`B]each .state.active;
   b:.state.grid ./:/:.state.active+/:\:til[23],'0;
   .state.active:.state.active+\:min[-1+min each where each .state.colours[`B]<>b],0;
@@ -197,10 +195,10 @@ start:{
   .state.score:0;
   .state.lines:0;
   .state.level:0;
-  .state.centre:.state.offset,6; / the centre of each new piece is placed here
+  .state.centre:.state.offset,6;
   .state.active:{[po;pi;o;e]e+/:raze po[pi]o}. .state`pos`piece`orientation`centre;
 
-  system"t 10"; / set tick timer to 10 ms, essentialy a refresh rate for .z.ts
+  system"t 10";
  };
 
 new_game[];

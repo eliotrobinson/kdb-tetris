@@ -10,8 +10,8 @@ if[all not .op`win`lin;-1"Unrecognised Operating System";exit 1];               
 
 .op.b:("\342\226\210";"\333").op.win;                                                           / the code for █ differs in windows and linux, and causes headaches later on
 .op.o:0 2 .op.win;                                                                              / since the code for █ either has 3 or 1 characters, we will need to offset some strings
-.op.rows:-12+floor$[.op.win;50;"J"$first system"tput lines"]div 2;                              / use tput to get the window height, and just guess for windows since nothing similar exists
-.op.cols:-6+floor$[.op.win;"J"$trim 12_system["mode con"]4;first"J"$system"tput cols"]div 2;    / use tput to get the window width, and use mode con if using windows
+.op.rows:$[.op.win;50;"J"$first system"tput lines"];                                            / use tput to get the window height, and just guess for windows since nothing similar exists
+.op.cols:$[.op.win;"J"$trim 12_system["mode con"]4;first"J"$system"tput cols"];                 / use tput to get the window width, and use mode con if using windows
 .op.sleep:$[.op.lin;                                                                            / some effects utilise the operating systems sleep function
   {system"sleep ",string x};                                                                    / for linux, easily use sleep
   {do[floor x*10;@[system;"ping 192.0.2.2 -n 1 -w 0.1 > nul";{x;}]]}                            / for windows, use ping on a non existent address to sleep for 1ms, then repeat x time

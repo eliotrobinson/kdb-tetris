@@ -3,6 +3,8 @@
 / [A] + [ENTER] = left
 / [D] + [ENTER] = right
 / [S] + [ENTER] = soft drop
+/ [N] + [ENTER] = start/restart game
+/ [X] + [ENTER] = exit
 
 if[.op.win:.z.o like"w*";system"echo 1"];                                                       / check if the operating system is windows, if so call a system command to avoid colours bugs
 if[.op.lin:.z.o like"l*";];                                                                     / check if the operating system is linux, do nothing but keep the if in case
@@ -155,7 +157,7 @@ move:{                                                                          
   if[c;print_screen .state.grid];                                                               / output the new grid to the console if movement did occur, eases load on users eyes
  };
 
-slam:{                                                                                          / the hard drop user input, this drops the piece as low as it can possiblu go
+slam:{                                                                                          / the hard drop user input, this drops the piece as low as it can possibly go
   .[`.state.grid;;:;.state.colours`B]each .state.active;                                        / remove the active piece from the grid
   b:.state.grid ./:/:.state.active+/:\:til[23],'0;                                              / get a list of all blocks for each column under the blocks of the active piece
   .state.active:.state.active+\:min[-1+min each where each .state.colours[`B]<>b],0;            / for each column, get the highest available free index, and take the highest of them all
@@ -169,12 +171,22 @@ rotate_piece:{                                                                  
   .[`.state.grid;;:;.state.colours`B]each .state.active;                                        / remove the active piece from the grid
   o:mod[;4].state.orientation+1;                                                                / make a place holder for the new orientation
   n:{[o;po;pi;e]e+/:raze po[pi]o}[o]. .state`pos`piece`centre;                                  / make a place holder for the new indexes of the active piece after rotation
-  if[c:not any .state.colours[`B]<>.state.grid ./:n;                                            / are the potential new indexes empty?  TODO - implement wall kick
+  if[c1:not any .state.colours[`B]<>.state.grid ./:n;                                           / are the potential new indexes empty?  TODO - implement wall kick
     .state.active:n;                                                                            /   if so, assign the place holder indexes as the active indexes
     .state.orientation:o;                                                                       /   and the place holder orientation and the current orientation
   ];
+  if[c2:any wk:(2 cut .state.colours`G`B`B`G)~\:2#distinct i:.state.grid ./:n;                  / we might be able to wall kick, check if the new indexes are either a wall and nothing else
+    wk:first where wk;                                                                          /   are we by the left or right wall
+    i:({1};{max[x]-10})[wk]n[;1];                                                               /   check how much we should kick away, noting that the right wall is dynamic due to flat I
+    n:n+\:i:0,(::;neg)[wk]i;                                                                    /   get the new indexes after the wall kick to the left/right
+    if[c2:all .state.colours[`B]=.state.grid ./:n;                                              /   need to check again if the new indexes are all black
+      .state.active:n;                                                                          /     if so, assign the new indexes to the active piece
+      .state.orientation:o;                                                                     /     and assign the new orientation
+      .state.centre:.state.centre+i;                                                            /     dont forget the centre has also moved, so adjust this too
+    ];
+  ];
   .[`.state.grid;;:;.state.colours .state.piece]each .state.active;                             / reassign the the active piece back to the grid
-  if[c;print_screen .state.grid];                                                               / output the new grid to the console if movement did occur, eases load on users eyes
+  if[c1|c2;print_screen .state.grid];                                                           / output the new grid to the console if movement did occur, eases load on users eyes
  };
 
 .z.pi:{                                                                                         / this function handles all user inputs, where x is the key press like "a \n"
@@ -202,6 +214,7 @@ start:{                                                                         
   .state.h_offset:div[.op.cols-22;2]#" ";
   .state[`game_started`game_end]:10b;                                                           / set the state to game started and not game ended
   .state[`piece`next_piece]:`$'2?"IOJLTZS";                                                     / choose the current and next piece(s)
+  .state.piece:`I;
   .state[`orientation`next_orientation]:1 1?\:0 1 2 3;                                          / choose the current and next orientation(s) (weird way to enlist them both)
   .state.np_grid:next_piece_grid . .state`next_piece`next_orientation;                          / using the next piece and orientation, create a small grid for display purposes
   .state[`counter`score`lines`level]:4#0;                                                       / set all the scores/lines/levels to 0, and reset the counter for .z.ts purposes

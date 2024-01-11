@@ -60,7 +60,7 @@ gen_end_screen:{                                                                
   r:@[x;5 19;f[i;string .state.colours count[i:4+til 16]#`G]];                                  / make top and bottom borders
   r:@[r;6+til 13;f[4+til 16;string .state.colours`$'"GG",(12#"B"),"GG"]];                       / make left and right borders
   r:@[r;7;f[7 8 9 10 12 13 14 15;"GAMEOVER"]];                                                  / assign GAME OVER at the top of the box
-  r:@[r;8;f[7 8 9 10 11 12;"PLEASE"]];                                                          / assign PLEASE below
+  r:@[r;9;f[7 8 9 10 11 12;"PLEASE"]];                                                          / assign PLEASE below
   r:@[r;10;f[8 9 10;"TRY"]];                                                                    / assign TRY below that
   r:@[r;11;f[9 10 11 12 13 15;("A";"G";"A";"I";"N";("\342\231\245";"\003").op.win)]];           / assign AGAIN ♥ below that, again awkward because the heart has 3/1 characters
   r:@[r;13;f[7 8 9 10 11 13 15 16;"PressNto"]];                                                 / from here on, simply assign text to appropriate rows and cols
@@ -132,20 +132,18 @@ game_over:{                                                                     
 new_game:{                                                                                      / function to create a fancy title screen
   .state.game_started:0b;                                                                       / set the state to game not started, so no movement inputs can be evaluated
   .state.game_end:0b;                                                                           / also set/reset to game not ended, so no movement inputs can be evaluated also
-  l1:"BTTTTTBOOOOOBJJJJJBZZZZBBIIIBBSSSSB";                                                     / make the fancy tetris logo, if you look hard enough you can see it in the text!
-  l2:"BBBTBBBOBBBBBBBJBBBZBBBZBBIBBSBBBBB";
-  l3:"BBBTBBBOOOOBBBBJBBBZZZZBBBIBBBSSSBB";
-  l4:"BBBTBBBOBBBBBBBJBBBZBBZBBBIBBBBBBSB";
-  l5:"BBBTBBBOOOOOBBBJBBBZBBBZBIIIBSSSSBB";
+  l1:"BTTTTTBOOOOBJJJJJBZZZZBIIIBSSSSB";                                                        / make the fancy tetris logo, if you look hard enough you can see it in the text!
+  l2:"BBBTBBBOBBBBBBJBBBZBBZBBIBBSBBBB";
+  l3:"BBBTBBBOOOBBBBJBBBZZZZBBIBBSSSSB";
+  l4:"BBBTBBBOBBBBBBJBBBZBZBBBIBBBBBSB";
+  l5:"BBBTBBBOOOOBBBJBBBZBBZBIIIBSSSSB";
   logo:(raze/')string 2#''.state.colours`$''(l1;l2;l3;l4;l5);                                   / convert the text strings to their colours blocks and join them
-  i:("";"";"   Press N to start a new game                      Press X to exit");              / add a couple of empty lines followed by the menu options
-  c:("";"";"                            ",("\302\251";"\270")[.op.win]," 1989 Nintendo");       / add a couple of empty lines followed by the copyright info, getting right code from os
+  i:("";"";"   Press N to start a new game                Press X to exit");                    / add a couple of empty lines followed by the menu options
+  c:("";"";(25#" "),("\302\251";"\270")[.op.win]," 1989 Nintendo");                             / add a couple of empty lines followed by the copyright info, getting right code from os
   v_pad:div[-10+.op.rows;2];                                                                    / allocate padding to put above and below the logo, so as it is central
-  h_pad:floor[(.op.cols-70)%2]#" ";                                                             / allocate padding to put in front of the logo to make it in the middle of the screen
+  h_pad:floor[(.op.cols-64)%2]#" ";                                                             / allocate padding to put in front of the logo to make it in the middle of the screen
   -1 ((v_pad+5)#enlist""),(h_pad,/:logo,i,c),(v_pad-5)#enlist"";                                / join them all together and output it to the console
  };
-
-/ logo is 70 characters wide
 
 move:{                                                                                          / the move user input, this moves the active piece either left or right
   .[`.state.grid;;:;.state.colours`B]each .state.active;                                        / remove the active piece from the grid

@@ -4,46 +4,46 @@
 / [D] + [ENTER] = right
 / [S] + [ENTER] = soft drop
 / [N] + [ENTER] = start/restart game
+/ [H] + {ENTER] = open hi score menu
 / [X] + [ENTER] = exit
 
-if[.op.win:.z.o like"w*";system"echo 1"];                                                       / check if the operating system is windows, if so call a system command to avoid colours bugs
-if[.op.lin:.z.o like"l*";];                                                                     / check if the operating system is linux, do nothing but keep the if in case
-if[all not .op`win`lin;-1"Unrecognised Operating System";exit 1];                               / if neither are true, then exit due to an untested operating system being used
+init:{                                                                                          / initialise some important operating system dependant and some state variables
+  if[.op.win:.z.o like"w*";system"echo 1"];                                                     / check if the operating system is windows, and call a system command to avoid colour bugs
+  .op.lin:.z.o like"l*";                                                                        / check if the operating system is linux
+  if[all not .op`win`lin;-1"Unrecognised Operating System";exit 1];                             / if neither are true, then exit due to an untested operating system being used
+  if[not`hiscore.csv in key`:.;`:hiscore.csv 0:csv 0:([]pos:1+til 16;score:n;lines:n;level:n:16#0N;name:16#`)]; / if the hi score csv doesnt exist, make one in the current directory
+  .op.b:("\342\226\210";"\333").op.win;                                                         / the code for █ differs in windows and linux, and causes headaches later on
+  .op.o:0 2 .op.win;                                                                            / since the code for █ either has 3 or 1 characters, we will need to offset some strings
+  .op.rows:$[.op.win;50;"J"$first system"tput lines"];                                          / use tput to get the window height, and just guess for windows since nothing similar exists
+  .op.cols:$[.op.win;"J"$trim 12_system["mode con"]4;first"J"$system"tput cols"];               / use tput to get the window width, and use mode con if using windows
+  .op.sleep:$[.op.lin;                                                                          / some effects utilise the operating systems sleep function
+    {system"sleep ",string x};                                                                  /   for linux, easily use sleep
+    {do[floor x*10;@[system;"ping 192.0.2.2 -n 1 -w 0.1 > nul";{x;}]]}                          /   for windows, use ping on a non existent address to sleep quickly, then repeat x times
+  ];                                                                                            /   cant use TIMEOUT since it only accepts seconds, this is the easiest method ive found...
+  system"S ",-5#string .z.p;                                                                    / get a random seed based on current time
+  system"c ",string[2+.op.rows]," 500";                                                         / set the console size based on the current window size
 
-.op.b:("\342\226\210";"\333").op.win;                                                           / the code for █ differs in windows and linux, and causes headaches later on
-.op.o:0 2 .op.win;                                                                              / since the code for █ either has 3 or 1 characters, we will need to offset some strings
-.op.rows:$[.op.win;50;"J"$first system"tput lines"];                                            / use tput to get the window height, and just guess for windows since nothing similar exists
-.op.cols:$[.op.win;"J"$trim 12_system["mode con"]4;first"J"$system"tput cols"];                 / use tput to get the window width, and use mode con if using windows
-.op.sleep:$[.op.lin;                                                                            / some effects utilise the operating systems sleep function
-  {system"sleep ",string x};                                                                    / for linux, easily use sleep
-  {do[floor x*10;@[system;"ping 192.0.2.2 -n 1 -w 0.1 > nul";{x;}]]}                            / for windows, use ping on a non existent address to sleep for 1ms, then repeat x time
- ];                                                                                             /   cant use TIMEOUT since it only accepts seconds
-                                                                                                /   and ping waits at least 500ms if anything above -w 1 is used HEADACHE :(
+  .state.pos:(!/)flip 2 cut                                                                     / make a dictionary for all shapes centered on an index of (0;0), this also contains each
+   (`I  ;4#((-1 0;0 0;1 0;2 0);(-1 -1;-1 0;-1 1;-1 2));                                         / rotation of the each shape going clockwise in order
+    `O  ;4#enlist(-1 -1;-1 0;0 -1;0 0);                                                         / eg .state.pos[L;0] rotates clockwise is .state.pos[L;1] and so on...
+    `J  ;((0 -1;0 0;0 1;1 1);(-1 0;0 0;1 0;1 -1);(-1 -1;0 -1;0 0;0 1);(-1 1;-1 0;0 0;1 0));
+    `L  ;((0 -1;0 0;0 1;1 -1);(-1 -1;-1 0;0 0;1 0);(-1 1;0 -1;0 0;0 1);(-1 0;0 0;1 0;1 1));
+    `T  ;((0 -1;0 0;0 1;1 0);(-1 0;0 -1;0 0;1 0);(-1 0;0 -1;0 0;0 1);(-1 0;0 0;0 1;1 0));
+    `S  ;4#((0 0;0 1;1 -1;1 0);(-1 -1;0 -1;0 0;1 0));
+    `Z  ;4#((0 -1;0 0;1 0;1 1);(-1 0;0 -1;0 0;1 -1))
+   );
 
-system"S ",-5#string .z.p;                                                                      / get a random seed based on current time
-system"c ",string[2+.op.rows]," 500";                                                           / set the console size based on the current window size
+  .state.colours:(!/)flip 2 cut                                                                 / make a dictionary of all shapes to colours, i think more colours can be used using a
+   (`I  ;`$"\033[36m",.op.b,"\033[0m";  `O  ;`$"\033[33m",.op.b,"\033[0m";                      / more complicates ascii code, but if it isnt broken, dont fix it
+    `J  ;`$"\033[34m",.op.b,"\033[0m";  `L  ;`$"\033[29m",.op.b,"\033[0m";
+    `T  ;`$"\033[35m",.op.b,"\033[0m";  `S  ;`$"\033[32m",.op.b,"\033[0m";
+    `Z  ;`$"\033[31m",.op.b,"\033[0m";  `B  ;`$"\033[30m",.op.b,"\033[0m";
+    `G  ;`$"\033[37m",.op.b,"\033[0m");
 
-.state.pos:(!/)flip 2 cut                                                                       / make a dictionary for all shapes centered on an index of (0;0), this is also used for
- (`I  ;4#((-1 0;0 0;1 0;2 0);(-1 -1;-1 0;-1 1;-1 2));                                           / rotation purposes which is why four sets of indexes exist for each shape
-  `O  ;4#enlist(-1 -1;-1 0;0 -1;0 0);
-  `J  ;((0 -1;0 0;0 1;1 1);(-1 0;0 0;1 0;1 -1);(-1 -1;0 -1;0 0;0 1);(-1 1;-1 0;0 0;1 0));
-  `L  ;((0 -1;0 0;0 1;1 -1);(-1 -1;-1 0;0 0;1 0);(-1 1;0 -1;0 0;0 1);(-1 0;0 0;1 0;1 1));
-  `T  ;((0 -1;0 0;0 1;1 0);(-1 0;0 -1;0 0;1 0);(-1 0;0 -1;0 0;0 1);(-1 0;0 0;0 1;1 0));
-  `S  ;4#((0 0;0 1;1 -1;1 0);(-1 -1;0 -1;0 0;1 0));
-  `Z  ;4#((0 -1;0 0;1 0;1 1);(-1 0;0 -1;0 0;1 -1)));
-
-.state.colours:(!/)flip 2 cut                                                                   / make a dictionary of all shapes to colours, this is basic atm but can be expanded later
- (`I  ;`$"\033[36m",.op.b,"\033[0m";
-  `O  ;`$"\033[33m",.op.b,"\033[0m";
-  `J  ;`$"\033[34m",.op.b,"\033[0m";
-  `L  ;`$"\033[29m",.op.b,"\033[0m";
-  `T  ;`$"\033[35m",.op.b,"\033[0m";
-  `S  ;`$"\033[32m",.op.b,"\033[0m";
-  `Z  ;`$"\033[31m",.op.b,"\033[0m";
-  `B  ;`$"\033[30m",.op.b,"\033[0m";
-  `G  ;`$"\033[37m",.op.b,"\033[0m");
-
-.state.gravity:`s#(til[11],13 16 19 29)!48 43 38 33 28 23 18 13 8 6 5 4 3 2 1;                  / make a step dictionary for the falling speeds (gravity) for each level(s)
+  .state.gravity:`s#(til[11],13 16 19 29)!48 43 38 33 28 23 18 13 8 6 5 4 3 2 1;                / make a step dictionary for the falling speeds (gravity) for each level(s)
+  .state[`menu_main`in_game`menu_hiscores`game_end]:1000b;                                      / set the state of which menu/screen we are looking at
+  main_menu[];                                                                                  / start up the game
+ };
 
 print_screen:{                                                                                  / function for printing the screen based on the current grid
   r:(raze/')string 2#''x;                                                                       / since a block █ is quite thin, expand it to make a square ██
@@ -51,22 +51,31 @@ print_screen:{                                                                  
   r:@[r;6 7;,;-9$("LEVEL";string .state.level)];                                                / append the current level on on the 5th and 6th row
   r:@[r;9 10;,;-9$("LINES";string .state.lines)];                                               / append the current lines cleared on the 8th and 9th row
   r:@[r;12 13 14 15 16;,;(raze/')string 2#''.state.np_grid];                                    / below the lines, display the next piece, this piece has there own little grid
-  if[.state.game_end;r:gen_end_screen r];                                                       / if the game end is triggered, overlay the game end message
+  if[.state.game_end;r:$[.state.new_hi_score;gen_new_hiscore_screen r;gen_end_screen r]];       / if the game end is triggered, overlay the game end message
   -1{z[0],(y,/:x),z 1}[r]..state`h_offset`v_offset;                                             / add the horizontal and vertical offsets to make the grid central
  };
 
 gen_end_screen:{                                                                                / if the game has ended, add the overlay to the current grid
   f:{[o;i;m;x]raze@[(12-o)cut x;i;:;m]}.op.o;                                                   / define the function to help, this is awkward since the blocks have 10/12 characters
   r:@[x;5 19;f[i;string .state.colours count[i:4+til 16]#`G]];                                  / make top and bottom borders
-  r:@[r;6+til 13;f[4+til 16;string .state.colours`$'"GG",(12#"B"),"GG"]];                       / make left and right borders
+  r:@[r;6+til 13;f[i;string .state.colours`$'"GG",(12#"B"),"GG"]];                              / make left and right borders
   r:@[r;7;f[7 8 9 10 12 13 14 15;"GAMEOVER"]];                                                  / assign GAME OVER at the top of the box
   r:@[r;9;f[7 8 9 10 11 12;"PLEASE"]];                                                          / assign PLEASE below
   r:@[r;10;f[8 9 10;"TRY"]];                                                                    / assign TRY below that
   r:@[r;11;f[9 10 11 12 13 15;("A";"G";"A";"I";"N";("\342\231\245";"\003").op.win)]];           / assign AGAIN ♥ below that, again awkward because the heart has 3/1 characters
-  r:@[r;13;f[7 8 9 10 11 13 15 16;"PressNto"]];                                                 / from here on, simply assign text to appropriate rows and cols
-  r:@[r;14;f[7 8 10 11 13 14 15 16;"gotomenu"]];
-  r:@[r;16;f[7 8 9 10 11 13 15 16;"PressXto"]];
-  :@[r;17;f[7 8 9 10;"exit"]];
+  r:@[r;13;f[7 8 9 10 11 13 15 16;"EnterNto"]];                                                 / from here on, simply assign text to appropriate rows and cols
+  r:@[r;14;f[7 8 9 11 12 13 14 15;"tryagain"]];
+  r:@[r;16;f[7 8 9 10 11 13 15 16;"EnterXto"]];
+  :@[r;17;f[7 8 10 11 13 14 15 16;"gotomenu"]];
+ };
+
+gen_new_hiscore_screen:{                                                                        / if a new hi score is acheived, we want this to flash up before the end game screen
+  f:{[o;i;m;x]raze@[(12-o)cut x;i;:;m]}.op.o;                                                   / define the function to help, this is awkward since the blocks have 10/12 characters
+  r:@[x;8 15;f[i;string .state.colours count[i:3+til 18]#`G]];                                  / make top and bottom borders
+  r:@[r;9+til 6;f[i;string .state.colours`$'"GG",(14#"B"),"GG"]];                               / make left and right borders
+  r:@[r;10;f[6 7 8 10 11 13 14 15 16 17;"NEWHISCORE"]];
+  r:@[r;12;f[6 7 8 9 10 12 13 14 15;"Enteryour"]];
+  :@[r;13;f[6 7 8 9 11 12 13 14 15 16;"namebelow:"]];
  };
 
 new_piece:{                                                                                     / if the last piece has dropped and the game has not ended, we need to create a new piece
@@ -104,8 +113,8 @@ drop_piece:{                                                                    
  };
 
 row_complete:{                                                                                  / this runs if 1 or more rows are full, we need to get rid of them and add up scores
-  .state.game_started:0b;                                                                       / replicate the menu state to disable all key inputs, otherwise the new block can be moved
-  c:@[.state.grid;w;:;e:count[w:1+where x]#enlist {x,(10#y),x}..state.colours`G`B]; / make a copy of the grid where the completed rows are replaced with blank rows
+  .state.menu_main:1b;                                                                          / replicate the menu state to disable all key inputs, otherwise the new block can be moved
+  c:@[.state.grid;w;:;e:count[w:1+where x]#enlist {x,(10#y),x}..state.colours`G`B];             / make a copy of the grid where the completed rows are replaced with blank rows
   do[3;                                                                                         / a naughty way of making the rows that are completed flash
     print_screen c;                                                                             / output the screen with the blank rows to console
     .op.sleep 0.2;                                                                              / wait for 0.2 seconds
@@ -119,30 +128,66 @@ row_complete:{                                                                  
   .state.lines+:sum x;                                                                          / update the lines completed
   .state.score+:(1 2 3 4i!40 100 300 1200*.state.level+1)sum x;                                 / update the score BEFORE the level, since the rows were completed on the previous level
   .state.level:.state.lines div 10;                                                             / then safely update the levels (can make something smarter than levelling up every 10 lines)
-  .state.game_started:1b;                                                                       / re-enable all key inputs
+  .state.menu_main:0b;                                                                          / re-enable all key inputs (could have a disable all input var, but this will do)
  };
 
 game_over:{                                                                                     / if the game is over, we want to stop everything and finalise the grid
-  .state.game_end:1b;                                                                           / set the state to game end, so that the appropriate game end screen is displayed
+  .state[`in_game`game_end]:01b;                                                                / set the state to game end, so that the appropriate game end screen is displayed
   .[`.state.grid;;:;.state.colours .state.piece]each 1 0+/:.state.active;                       / drop the current piece anyway and set it to the grid (like the nes version)
+  hs:("JJJJS";enlist",")0:`:hiscore.csv;                                                        / pull up the hi scores
+  if[.state.new_hi_score:(.state.score>=min hs`score)|0N in hs`score;                           / is our score equal to or higher then the lowest hi score, or are there empty spots?
+    hs:`score`lines`level xdesc hs upsert 0,.state[`score`lines`level],`;                       /   add the new score to the hi scores table, and order them by score, then lines, then level
+    .state.hiscore_rank:1+first where 0=hs`pos;                                                 /   what is the rank of the new hi score, need this so we know where to assign the name
+    if[17=.state.hiscore_rank;.state.new_hi_score:0b];                                          /   in the extremely unlikely event of a tie at pos 16, dont bother updating the hi score
+    .state.hiscores:16#@[hs;`pos;:;1+til 17];                                                   /   relabel the position column and remove the overflow
+  ];                                                                                            /   note - any ties are pushed down a rank eg tieing for pos 5 will be push you to pos 6
   print_screen .state.grid;                                                                     / print the screen with the game end message to the console
   system"t 0";                                                                                  / pause .z.ts so nothing else happens
  };                                                                                             / we dont need to disable inputs here since all game end user inputs will be evaluated
 
-new_game:{                                                                                      / function to create a fancy title screen
-  .state.game_started:0b;                                                                       / set the state to game not started, so no movement inputs can be evaluated
-  .state.game_end:0b;                                                                           / also set/reset to game not ended, so no movement inputs can be evaluated also
+commit_hi_score:{
+  .state.new_hi_score:0b;                                                                       / disable the new hi score state so we dont repeat this action
+  if[not count -1_x;x:(3?.Q.a),"\n"];                                                           / if the user entered nothing, then generate 3 random letters in true arcade style
+  .state.hiscores:update name:`$10$-1_x from .state.hiscores where pos=.state.hiscore_rank;     / update the name of the new hi score
+  `:hiscore.csv 0:csv 0:.state.hiscores;                                                        / overwrite the old hi scores with the new record added
+ };
+
+main_menu:{                                                                                     / function to create a fancy title screen
   l1:"BTTTTTBOOOOBJJJJJBZZZZBIIIBSSSSB";                                                        / make the fancy tetris logo, if you look hard enough you can see it in the text!
   l2:"BBBTBBBOBBBBBBJBBBZBBZBBIBBSBBBB";
   l3:"BBBTBBBOOOBBBBJBBBZZZZBBIBBSSSSB";
   l4:"BBBTBBBOBBBBBBJBBBZBZBBBIBBBBBSB";
   l5:"BBBTBBBOOOOBBBJBBBZBBZBIIIBSSSSB";
   logo:(raze/')string 2#''.state.colours`$''(l1;l2;l3;l4;l5);                                   / convert the text strings to their colours blocks and join them
-  i:("";"";"   Press N to start a new game                Press X to exit");                    / add a couple of empty lines followed by the menu options
+  i:("";"";"   Enter N to start a new game     Enter H to go to hi scores";"";(25#" "),"Enter X to exit"); / add a couple of empty lines followed by the menu options
   c:("";"";(25#" "),("\302\251";"\270")[.op.win]," 1989 Nintendo");                             / add a couple of empty lines followed by the copyright info, getting right code from os
   v_pad:div[-10+.op.rows;2];                                                                    / allocate padding to put above and below the logo, so as it is central
   h_pad:floor[(.op.cols-64)%2]#" ";                                                             / allocate padding to put in front of the logo to make it in the middle of the screen
   -1 ((v_pad+5)#enlist""),(h_pad,/:logo,i,c),(v_pad-5)#enlist"";                                / join them all together and output it to the console
+ };
+
+hi_scores:{                                                                                     / function to create a fancy hi scores screen
+  l1:"BZBBZBZZZBBBZZZBZZZBZZZZBZZZBBZZZBZZZ";                                                   / make the fancy hi scores header
+  l2:"BZBBZBBZBBBBZBBBZBBBZBBZBZBBZBZBBBZBB";
+  l3:"BZZZZBBZBBBBZZZBZBBBZBBZBZZZBBZZBBZZZ";
+  l4:"BZBBZBBZBBBBBBZBZBBBZBBZBZBZBBZBBBBBZ";
+  l5:"BZBBZBZZZBBBZZZBZZZBZZZZBZBBZBZZZBZZZ";
+  hs:(raze/')string 2#''.state.colours`$''(l1;l2;l3;l4;l5);                                     / make the hi scores lettering using the text above
+  scores:@[flip","vs'1_read0`:hiscore.csv;0;{-12$"\033[31m",x,".\033[0m"}'];                    / read the scores as strings, and format the pos numbers to be red
+  scores:" "sv'flip@[scores;1 2 3 4;{" ",-10$" ",x}'];                                          / for each score and name, pad out thr string so it is at most 10 characters long
+  head:"    "," "sv -11$("score";"lines";"level";"name");                                       / make the headers for each column
+  main:hs,("";"";p,head),(p:10#" "),/:scores;                                                   / join them all together with some padding and blank lines
+  mo:"    Enter X to return to main menu           Enter R to clear the hiscores";              / add the hi score menu options
+  if[.state.rhs;mo:"    Enter X to return to main menu             Enter R again to confirm"];  / if we are confirming the reset of hi scores, change the menu options slightly
+  h_pad:floor[(.op.cols-78)%2]#" ";                                                             / allocate padding to put above and below the screen, so as it is central
+  v_pad:div[.op.rows-24;2]#enlist"";                                                            / allocate padding to put in front of the screen to make it in the middle of the screen
+  -1 v_pad,(h_pad,/:main,("";mo)),2_v_pad;                                                      / join them all together and output it to the console
+ };
+
+reset_hi_scores:{
+  if[.state.rhs;`:hiscore.csv 0:csv 0:([]pos:1+til 16;score:n;lines:n;level:n:16#0N;name:16#`)]; / if the user has confirmed deletion, overwrite the hi scores with an empty table
+  .state.rhs:not .state.rhs;                                                                    / flip the state to on if we are confirming the deletion, or off if deletion happened
+  hi_scores[];                                                                                  / in either case reprint the hi scores with the confirmation message/cleared hi scores
  };
 
 move:{                                                                                          / the move user input, this moves the active piece either left or right
@@ -187,18 +232,33 @@ rotate_piece:{                                                                  
   if[c1|c2;print_screen .state.grid];                                                           / output the new grid to the console if movement did occur, eases load on users eyes
  };
 
-.z.pi:{                                                                                         / this function handles all user inputs, where x is the key press like "a \n"
-  if[.state.game_end;$[x like"[nN]*";new_game[];x like"[xX]*";exit 0;::];:()];                  / if we are on the end screen, have the user return to menu or exit, and nothing else
-  if[not .state.game_started;$[x like"[nN]*";start[];x like"[xX]*";exit 0;::];:()];             / if we are on the menu screen, have the user start a new game or exit, and nothing else
-  $[                                                                                            / if we are not on the menu or end screen, we must be in the game
-    x like"[aA]*";move -1;                                                                      / if the user pressed a, then move the active pieve to the left
-    x like"[dD]*";move 1;                                                                       / if the user pressed d, then move the active piece to the right
-    x like"[sS]*";drop_piece[];                                                                 / if the user pressed s, we want to softly drop the active piece (more for debugging)
-    x like"[xX]*";exit 0;                                                                       / if the user pressed x, exit the game
-    x like"[nN]*";start[];                                                                      / if the user pressed n, restart the game (more for debugging)
-    x like" *";slam[];                                                                          / if the user pressed the space bar, hard drop the active pieve
-    rotate_piece[]                                                                              / if anything else/nothing was entered and enter was hit, rotate the active piece clockwise
-  ];
+.z.pi:{                                                                                         / user input handler, only 1 check should pass, but leave early everytime anyway
+  if[.state.menu_main;                                                                          / if we are on the menu screen
+    $[x like"[nN]*";[.state[`menu_main`in_game`game_end]:010b;start[]];                         /   give the option to start a game
+      x like"[xX]*";exit 0;                                                                     /   give the option to exit the game
+      x like"[hH]*";[.state[`menu_main`menu_hiscores`rhs]:010b;hi_scores[]];                    /   and give an option to go to the hi score menu screen
+      ::];                                                                                      /   and nothing else
+    :()];                                                                                       /   finally leave earlu to avoid other checks running
+  if[.state.in_game;                                                                            / if we are in the game
+    $[x like"[aA]*";move -1;                                                                    /   if the user pressed a, then move the active pieve to the left
+      x like"[dD]*";move 1;                                                                     /   if the user pressed d, then move the active piece to the right
+      x like"[sS]*";drop_piece[];                                                               /   if the user pressed s, we want to softly drop the active piece (more for debugging)
+      x like"[xX]*";[.state[`menu_main`in_game]:10b;system"t 0";main_menu[]];                   /   if the user pressed x, stop .z.ts, go back to the main menu
+      x like"[nN]*";start[];                                                                    /   if the user pressed n, restart the game (more for debugging)
+      x like" *";slam[];                                                                        /   if the user pressed the space bar, hard drop the active pieve
+      rotate_piece[]];                                                                          /   if anything else was entered or just enter was hit, rotate the active piece clockwise
+    :()];                                                                                       /   finally leave early to avoid any other checks running
+  if[.state.menu_hiscores;                                                                      / if we are on the hi score menu
+    $[x like"[xX]*";[.state[`menu_hiscores`menu_main]:01b;;main_menu[]];                        /   give the option to quit, and disable the hiscore menu input options
+      x like"[rR]*";reset_hi_scores[];                                                          /   first ask if the user is sure, then reset if r is hit again
+      ::];                                                                                      /   and nothing else
+    :()];                                                                                       /   finally leave early to avoid any other checks running
+  if[.state.game_end;                                                                           / if we are on the game end screen
+    if[.state.new_hi_score;commit_hi_score x;print_screen .state.grid;:()];                     /   if there is a new hi score, use the user input to assign a name to the new high score
+    $[x like"[nN]*";[.state[`game_end`in_game]:01b;start[]];                                    /   otherwise continue as normal, and have the user either restart the game
+      x like"[xX]*";[.state[`game_end`menu_main]:01b;main_menu[]];                              /   or exit the to the main menu
+      ::];                                                                                      /   and nothing else
+    :()];                                                                                       /   finally return early (i know this is the last function, but keep this for continuity)
  };
 
 .z.ts:{                                                                                         / the timer of which the game functions and updates, this function will be executed every
@@ -208,11 +268,9 @@ rotate_piece:{                                                                  
 
 start:{                                                                                         / the initial function which sets the game globals up once the start button is pressed
   .state.grid:enlist[12#enlist`],{(21#enlist x,(10#y),x),enlist raze 12#enlist x}. .state.colours`G`B; / make the grid of which the tetris game will be played on, including empty top line
-  .state.v_offset:(div[.op.rows-22;2]+1 -1)#\:enlist"";
-  .state.h_offset:div[.op.cols-22;2]#" ";
-  .state[`game_started`game_end]:10b;                                                           / set the state to game started and not game ended
+  .state.v_offset:(div[.op.rows-22;2]+1 -1)#\:enlist"";                                         / set how much padding is required to bring the grid UP to the centre of the screen
+  .state.h_offset:div[.op.cols-22;2]#" ";                                                       / set how much padding is required to bring the grid from the LEFT to the centre
   .state[`piece`next_piece]:`$'2?"IOJLTZS";                                                     / choose the current and next piece(s)
-  .state.piece:`I;
   .state[`orientation`next_orientation]:1 1?\:0 1 2 3;                                          / choose the current and next orientation(s) (weird way to enlist them both)
   .state.np_grid:next_piece_grid . .state`next_piece`next_orientation;                          / using the next piece and orientation, create a small grid for display purposes
   .state[`counter`score`lines`level]:4#0;                                                       / set all the scores/lines/levels to 0, and reset the counter for .z.ts purposes
@@ -222,4 +280,4 @@ start:{                                                                         
   system"t 10";                                                                                 / set the refresh rate of .z.ts to 10 ms, and this will automatically kick off .z.ts
  };
 
-new_game[];                                                                                     / if the script is just ran, open up the menu
+init[];

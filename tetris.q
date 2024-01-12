@@ -12,14 +12,18 @@ init:{                                                                          
   .op.lin:.z.o like"l*";                                                                        / check if the operating system is linux
   if[all not .op`win`lin;-1"Unrecognised Operating System";exit 1];                             / if neither are true, then exit due to an untested operating system being used
   if[not`hiscore.csv in key`:.;`:hiscore.csv 0:csv 0:([]pos:1+til 16;score:n;lines:n;level:n:16#0N;name:16#`)]; / if the hi score csv doesnt exist, make one in the current directory
-  .op.b:("\342\226\210";"\333").op.win;                                                         / the code for █ differs in windows and linux, and causes headaches later on
-  .op.o:0 2 .op.win;                                                                            / since the code for █ either has 3 or 1 characters, we will need to offset some strings
+  .op.o:0 2 .op.win;                                                                            / offset special characters which have length 1 or 3 for windows and linux respectively
   .op.rows:$[.op.win;50;"J"$first system"tput lines"];                                          / use tput to get the window height, and just guess for windows since nothing similar exists
   .op.cols:$[.op.win;"J"$trim 12_system["mode con"]4;first"J"$system"tput cols"];               / use tput to get the window width, and use mode con if using windows
   .op.sleep:$[.op.lin;                                                                          / some effects utilise the operating systems sleep function
     {system"sleep ",string x};                                                                  /   for linux, easily use sleep
     {do[floor x*10;@[system;"ping 192.0.2.2 -n 1 -w 0.1 > nul";{x;}]]}                          /   for windows, use ping on a non existent address to sleep quickly, then repeat x times
   ];                                                                                            /   cant use TIMEOUT since it only accepts seconds, this is the easiest method ive found...
+  .op.char.all_lin:3 cut first read0`:art/char.txt;                                             / assign all special characters to its own global variables
+  .op.char.all_win:"\333\271\272\273\274\310\311\314\315";                                      / if using windows, manually assign the correct characters
+  .op.char.all:.op.char`all_lin`all_win .op.win;                                                / choose which list of characters to use based on os
+  .op.char[`b`pipe_vleft`pipe_vert`corner_bl`corner_tl`corner_tr`corner_br`pipe_vright`pipe_flat]:.op.char.all; / assign the standard block and pipe characters to their own dictionary
+
   system"S ",-5#string .z.p;                                                                    / get a random seed based on current time
   system"c ",string[2+.op.rows]," 500";                                                         / set the console size based on the current window size
 
@@ -33,11 +37,11 @@ init:{                                                                          
     `Z  ;4#((0 -1;0 0;1 0;1 1);(-1 0;0 -1;0 0;1 -1)));
 
   .state.colours:(!/)flip 2 cut                                                                 / make a dictionary of all shapes to colours, i think more colours can be used using a
-   (`I  ;`$"\033[36m",.op.b,"\033[0m";  `O  ;`$"\033[33m",.op.b,"\033[0m";                      / more complicates ascii code, but if it isnt broken, dont fix it
-    `J  ;`$"\033[34m",.op.b,"\033[0m";  `L  ;`$"\033[29m",.op.b,"\033[0m";
-    `T  ;`$"\033[35m",.op.b,"\033[0m";  `S  ;`$"\033[32m",.op.b,"\033[0m";
-    `Z  ;`$"\033[31m",.op.b,"\033[0m";  `B  ;`$"\033[30m",.op.b,"\033[0m";
-    `G  ;`$"\033[37m",.op.b,"\033[0m");
+   (`I  ;`$"\033[36m",.op.char.b,"\033[0m";  `O  ;`$"\033[33m",.op.char.b,"\033[0m";            / more complicates ascii code, but if it isnt broken, dont fix it
+    `J  ;`$"\033[34m",.op.char.b,"\033[0m";  `L  ;`$"\033[29m",.op.char.b,"\033[0m";
+    `T  ;`$"\033[35m",.op.char.b,"\033[0m";  `S  ;`$"\033[32m",.op.char.b,"\033[0m";
+    `Z  ;`$"\033[31m",.op.char.b,"\033[0m";  `B  ;`$"\033[30m",.op.char.b,"\033[0m";
+    `G  ;`$"\033[37m",.op.char.b,"\033[0m");
 
   .state.gravity:`s#(til[11],13 16 19 29)!48 43 38 33 28 23 18 13 8 6 5 4 3 2 1;                / make a step dictionary for the falling speeds (gravity) for each level(s)
   .state.menu.main:1b;                                                                          / set the location to the main menu (and initailise the global variable)
@@ -59,10 +63,13 @@ init:{                                                                          
 
 print_screen:{                                                                                  / function for printing the screen based on the current grid
   r:(raze/')string 2#''x;                                                                       / since a block █ is quite thin, expand it to make a square ██
-  r:@[r;3 4;,;-9$("SCORE";string .state.score)];                                                / append the current score on the 2nd and 3rd row
-  r:@[r;6 7;,;-9$("LEVEL";string .state.level)];                                                / append the current level on on the 5th and 6th row
-  r:@[r;9 10;,;-9$("LINES";string .state.lines)];                                               / append the current lines cleared on the 8th and 9th row
-  r:@[r;12 13 14 15 16;,;(raze/')string 2#''.state.np_grid];                                    / below the lines, display the next piece, this piece has there own little grid
+  r:@[r;1;,;{" ",x,raze[10#enlist y],z}. .op.char`corner_br`pipe_flat`corner_bl];               / create the top border for the score panel
+  r:@[r;4 7 10;,;3#enlist{" ",x,raze[10#enlist y],z}..op.char`pipe_vright`pipe_flat`pipe_vleft]; / create the middle border things for the score panel
+  r:@[r;16;,;{" ",x,raze[10#enlist y],z}. .op.char`corner_tr`pipe_flat`corner_tl];              / create the bottom border for the score panel
+  r:@[r;2 3;,;(" ",c),/:(-9$("SCORE";string .state.score)),\:" ",c:.op.char.pipe_vert];         / append the current score on the 2nd and 3rd row
+  r:@[r;5 6;,;(" ",c),/:(-9$("LEVEL";string .state.level)),\:" ",c];                            / append the current level on on the 5th and 6th row
+  r:@[r;8 9;,;(" ",c),/:(-9$("LINES";string .state.lines)),\:" ",c];                            / append the current lines cleared on the 8th and 9th row
+  r:@[r;11 12 13 14 15;,;(" ",c),/:((raze/')string 2#''.state.np_grid),\:c];                    / below the lines, display the next piece, this piece has there own little grid
   if[.state.menu.game_end;r:$[.state.new_hi_score;gen_new_hiscore_screen r;gen_end_screen r]];  / if the game end is triggered, overlay the game end message
   -1{z[0],(y,/:x),z 1}[r]..state`h_offset`v_offset;                                             / add the horizontal and vertical offsets to make the grid central
  };
@@ -76,8 +83,9 @@ gen_end_screen:{                                                                
   r:@[r;10;f[8 9 10;"TRY"]];                                                                    / assign TRY below that
   r:@[r;11;f[9 10 11 12 13 15;("A";"G";"A";"I";"N";("\342\231\245";"\003").op.win)]];           / assign AGAIN ♥ below that, again awkward because the heart has 3/1 characters
   r:@[r;13;f[9 10 11 12 13;"RETRY"]];                                                           / assign the RETRY menu option
-  r:@[r;16;f[7 8 9 10 12 13 14 15;"MAINMENU"]];                                                 / assign the MAIN MENU option
-  :(@[r;14;f[9+til 5;5#"^"]];@[r;17;f[7+til 9;9#"^"]]).state.cursor;                            / assign where the cursor is going to sit and return
+  r:@[r;16;f[9 10 11 12;"MENU"]];                                                               / assign the MENU option
+  cursor:(1 3)[.op.lin]cut raze .op.char`corner_tr,((5 4)[.state.cursor]#`pipe_flat),`corner_tl;
+  :(@[r;14;f[8+til count cursor;cursor]];@[r;17;f[8+til count cursor;cursor]]).state.cursor;
  };
 
 gen_new_hiscore_screen:{                                                                        / if a new hi score is acheived, we want this to flash up before the end game screen
@@ -146,7 +154,7 @@ game_over:{                                                                     
   .state.menu[`in_game`game_end]:01b;                                                           / set the state to game end, so that the appropriate game end screen is displayed
   .[`.state.grid;;:;.state.colours .state.piece]each 1 0+/:.state.active;                       / drop the current piece anyway and set it to the grid (like the nes version)
   hs:("JJJJS";enlist",")0:`:hiscore.csv;                                                        / pull up the hi scores
-  if[.state.new_hi_score:(.state.score>=min hs`score)|0N in hs`score;                           / is our score equal to or higher then the lowest hi score, or are there empty spots?
+  if[.state.new_hi_score:(0<>.state.score)&(.state.score>=min hs`score)|0N in hs`score;         / dont reward 0 scores, and check if the score is in the top 16 or the hi scores are not full
     hs:`score`lines`level xdesc hs upsert 0,.state[`score`lines`level],`;                       /   add the new score to the hi scores table, and order them by score, then lines, then level
     .state.hiscore_rank:1+first where 0=hs`pos;                                                 /   what is the rank of the new hi score, need this so we know where to assign the name
     if[17=.state.hiscore_rank;.state.new_hi_score:0b];                                          /   in the extremely unlikely event of a tie at pos 16, dont bother updating the hi score
@@ -164,35 +172,26 @@ commit_hi_score:{
  };
 
 main_menu:{                                                                                     / function to create a fancy title screen
-  l1:"BTTTTTBOOOOBJJJJJBZZZZBIIIBSSSSB";                                                        / make the fancy tetris logo, if you look hard enough you can see it in the text!
-  l2:"BBBTBBBOBBBBBBJBBBZBBZBBIBBSBBBB";
-  l3:"BBBTBBBOOOBBBBJBBBZZZZBBIBBSSSSB";
-  l4:"BBBTBBBOBBBBBBJBBBZBZBBBIBBBBBSB";
-  l5:"BBBTBBBOOOOBBBJBBBZBBZBIIIBSSSSB";
-  logo:(raze/')string 2#''.state.colours`$''(l1;l2;l3;l4;l5);                                   / convert the text strings to their colours blocks and join them
-  opts:(19#" ")sv("    START";"HI SCORES";"QUIT  ");                                            / add an empty line followed by the menu options
-  i:{x[0],1+last[x]-x 0}each where[n:not deltas[a]in 1 2]cut a:where opts<>" ";                 / weird way to find where the menu options are and get the first index and how many chars
-  cursor:@[;.state.cursor]{(x#" "),y#"^"}.'i;                                                   / generate the string for the cursor line, and position it under the current option
-  copy:((18#" "),"Version 1.0.0    "),("\302\251";"\270")[0]," 1989 Nintendo";                  / add a couple of empty lines followed by the copyright info, getting right code from os
+  col_map:(5#'string .state.colours)[`$'"ZLOSIT"],enlist"\033[0m";                              / get the strings for each corresponding colours
+  logo:ssr/[;"ZLOSITN";col_map]each ssr/[;.op.char.all_lin;.op.char.all]each read0`:art/logo.txt; / convert the text strings to their os specific colours blocks and join them
+  opts:(4#" "),(18#" ")sv("START";"HI SCORES";"QUIT");                                          / add an empty line followed by the menu options
+  i:{x[0],1+last[x]-x 0}each where[not deltas[a]in 1 2]cut a:where opts<>" ";                   / weird way to find where the menu options are and get the first index and how many chars
+  cursor:@[;.state.cursor]{#[x-1;" "],raze .op.char`corner_tr,(y#`pipe_flat),`corner_tl}.'i;    / generate the cursor line, and position it under the current option
+  copy:((16#" "),"Version 1.0.0    "),("\302\251";"\270")[.op.win]," 1989 Nintendo";            / add a couple of empty lines followed by the copyright info, getting right code from os
   v_pad:div[-10+.op.rows;2];                                                                    / allocate padding to put above and below the logo, so as it is central
   h_pad:floor[(.op.cols-64)%2]#" ";                                                             / allocate padding to put in front of the logo to make it in the middle of the screen
-  -1 ((v_pad+5)#enlist""),(h_pad,/:logo,("";"";opts;cursor;"";"";copy)),(v_pad-5)#enlist"";           / join them all together and output it to the console
+  -1 ((v_pad+5)#enlist""),(h_pad,/:logo,("";"";opts;cursor;"";"";copy)),(v_pad-5)#enlist"";     / join them all together and output it to the console
  };
 
 hi_scores:{                                                                                     / function to create a fancy hi scores screen
-  l1:"BZBBZBZZZBBBZZZBZZZBZZZZBZZZBBZZZBZZZ";                                                   / make the fancy hi scores header
-  l2:"BZBBZBBZBBBBZBBBZBBBZBBZBZBBZBZBBBZBB";
-  l3:"BZZZZBBZBBBBZZZBZBBBZBBZBZZZBBZZBBZZZ";
-  l4:"BZBBZBBZBBBBBBZBZBBBZBBZBZBZBBZBBBBBZ";
-  l5:"BZBBZBZZZBBBZZZBZZZBZZZZBZBBZBZZZBZZZ";
-  hs:(raze/')string 2#''.state.colours`$''(l1;l2;l3;l4;l5);                                     / make the hi scores lettering using the text above
+  hs:ssr/[;"ZN";("\033[31m";"\033[0m")]each ssr/[;.op.char.all_lin;.op.char.all]each read0`:art/hi_scores.txt; / convert the text strings to their os specific colours blocks and join them
   scores:@[flip","vs'1_read0`:hiscore.csv;0;{-12$"\033[31m",x,".\033[0m"}'];                    / read the scores as strings, and format the pos numbers to be red
   scores:" "sv'flip@[scores;1 2 3 4;{" ",-10$" ",x}'];                                          / for each score and name, pad out thr string so it is at most 10 characters long
   head:"    "," "sv -11$("score";"lines";"level";"name");                                       / make the headers for each column
   main:hs,("";"";p,head),(p:10#" "),/:scores;                                                   / join them all together with some padding and blank lines
-  opts:"    ",(41#" ")sv("RETURN TO MENU";("RESET HI SCORES";" ARE YOU SURE?").state.menu.rhs); / join up the menu options, and check if we are in the normal or resetting state
+  opts:(15#" "),(20#" ")sv("RETURN TO MENU";("RESET HI SCORES";" ARE YOU SURE?").state.menu.rhs); / join up the menu options, and check if we are in the normal or resetting state
   i:{x[0],1+last[x]-x 0}each where[n:not deltas[a]in 1 2]cut a:where opts<>" ";                 / weird way to find where the menu options are and get the first index and how many chars
-  cursor:@[;.state.cursor]{(x#" "),y#"^"}.'i;                                                   / generate the string for the cursor line, and position it under the current option
+  cursor:@[;.state.cursor]{#[x-1;" "],raze .op.char`corner_tr,(y#`pipe_flat),`corner_tl}.'i;    / generate the cursor line, and position it under the current option
   h_pad:floor[(.op.cols-78)%2]#" ";                                                             / allocate padding to put above and below the screen, so as it is central
   v_pad:div[.op.rows-24;2]#enlist"";                                                            / allocate padding to put in front of the screen to make it in the middle of the screen
   -1 v_pad,(h_pad,/:main,("";opts;cursor)),2_v_pad;                                             / join them all together and output it to the console

@@ -19,8 +19,10 @@ init:{                                                                          
     {system"sleep ",string x};                                                                  /   for linux, easily use sleep
     {do[floor x*10;@[system;"ping 192.0.2.2 -n 1 -w 0.1 > nul";{x;}]]}                          /   for windows, use ping on a non existent address to sleep quickly, then repeat x times
   ];                                                                                            /   cant use TIMEOUT since it only accepts seconds, this is the easiest method ive found...
-  .op.char.all:(1 3)[.op.lin]cut first read0`:art/char.txt;                                     / assign all special characters to its own global variables
-  .op.char[`b`pipe_vleft`pipe_vert`corner_bl`corner_tl`corner_tr`corner_br`pipe_vright`pipe_flat]:.op.char.all; / assign the standard block and pipe characters to their own dictionaru
+  .op.char.all_lin:3 cut first read0`:art/char.txt;                                             / assign all special characters to its own global variables
+  .op.char.all_win:"\333\271\272\273\274\310\311\314\315";                                      / if using windows, manually assign the correct characters
+  .op.char.all:.op.char`all_lin`all_win .op.win;                                                / choose which list of characters to use based on os
+  .op.char[`b`pipe_vleft`pipe_vert`corner_bl`corner_tl`corner_tr`corner_br`pipe_vright`pipe_flat]:.op.char.all; / assign the standard block and pipe characters to their own dictionary
 
   system"S ",-5#string .z.p;                                                                    / get a random seed based on current time
   system"c ",string[2+.op.rows]," 500";                                                         / set the console size based on the current window size
@@ -152,7 +154,7 @@ game_over:{                                                                     
   .state.menu[`in_game`game_end]:01b;                                                           / set the state to game end, so that the appropriate game end screen is displayed
   .[`.state.grid;;:;.state.colours .state.piece]each 1 0+/:.state.active;                       / drop the current piece anyway and set it to the grid (like the nes version)
   hs:("JJJJS";enlist",")0:`:hiscore.csv;                                                        / pull up the hi scores
-  if[.state.new_hi_score:(.state.score>=min hs`score)|0N in hs`score;                           / is our score equal to or higher then the lowest hi score, or are there empty spots?
+  if[.state.new_hi_score:(0<>.state.score)&(.state.score>=min hs`score)|0N in hs`score;         / dont reward 0 scores, and check if the score is in the top 16 or the hi scores are not full
     hs:`score`lines`level xdesc hs upsert 0,.state[`score`lines`level],`;                       /   add the new score to the hi scores table, and order them by score, then lines, then level
     .state.hiscore_rank:1+first where 0=hs`pos;                                                 /   what is the rank of the new hi score, need this so we know where to assign the name
     if[17=.state.hiscore_rank;.state.new_hi_score:0b];                                          /   in the extremely unlikely event of a tie at pos 16, dont bother updating the hi score
@@ -171,18 +173,18 @@ commit_hi_score:{
 
 main_menu:{                                                                                     / function to create a fancy title screen
   col_map:(5#'string .state.colours)[`$'"ZLOSIT"],enlist"\033[0m";                              / get the strings for each corresponding colours
-  logo:ssr/[;"ZLOSITN";col_map]each read0`:art/logo.txt;                                        / convert the text strings to their colours blocks and join them
+  logo:ssr/[;"ZLOSITN";col_map]each ssr/[;.op.char.all_lin;.op.char.all]each read0`:art/logo.txt; / convert the text strings to their os specific colours blocks and join them
   opts:(4#" "),(18#" ")sv("START";"HI SCORES";"QUIT");                                          / add an empty line followed by the menu options
   i:{x[0],1+last[x]-x 0}each where[not deltas[a]in 1 2]cut a:where opts<>" ";                   / weird way to find where the menu options are and get the first index and how many chars
   cursor:@[;.state.cursor]{#[x-1;" "],raze .op.char`corner_tr,(y#`pipe_flat),`corner_tl}.'i;    / generate the cursor line, and position it under the current option
-  copy:((16#" "),"Version 1.0.0    "),("\302\251";"\270")[0]," 1989 Nintendo";                  / add a couple of empty lines followed by the copyright info, getting right code from os
+  copy:((16#" "),"Version 1.0.0    "),("\302\251";"\270")[.op.win]," 1989 Nintendo";            / add a couple of empty lines followed by the copyright info, getting right code from os
   v_pad:div[-10+.op.rows;2];                                                                    / allocate padding to put above and below the logo, so as it is central
   h_pad:floor[(.op.cols-64)%2]#" ";                                                             / allocate padding to put in front of the logo to make it in the middle of the screen
   -1 ((v_pad+5)#enlist""),(h_pad,/:logo,("";"";opts;cursor;"";"";copy)),(v_pad-5)#enlist"";     / join them all together and output it to the console
  };
 
 hi_scores:{                                                                                     / function to create a fancy hi scores screen
-  hs:ssr/[;"ZN";("\033[31m";"\033[0m")]each read0`:art/hi_scores.txt;                           / convert the text strings to their colours blocks and join them
+  hs:ssr/[;"ZN";("\033[31m";"\033[0m")]each ssr/[;.op.char.all_lin;.op.char.all]each read0`:art/hi_scores.txt; / convert the text strings to their os specific colours blocks and join them
   scores:@[flip","vs'1_read0`:hiscore.csv;0;{-12$"\033[31m",x,".\033[0m"}'];                    / read the scores as strings, and format the pos numbers to be red
   scores:" "sv'flip@[scores;1 2 3 4;{" ",-10$" ",x}'];                                          / for each score and name, pad out thr string so it is at most 10 characters long
   head:"    "," "sv -11$("score";"lines";"level";"name");                                       / make the headers for each column

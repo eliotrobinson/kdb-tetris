@@ -1,11 +1,11 @@
+/ IN GAME CONTROLS
 / [ENTER] = rotate clockwise
 / [SPACE] + [ENTER] = drop
 / [A] + [ENTER] = left
 / [D] + [ENTER] = right
 / [S] + [ENTER] = soft drop
-/ [N] + [ENTER] = start/restart game
-/ [H] + {ENTER] = open hi score menu
-/ [X] + [ENTER] = exit
+/ [R] + [ENTER] = start/restart game
+/ [X] + [ENTER] = return to menu
 
 init:{                                                                                          / initialise some important operating system dependant and some state variables
   if[.op.win:.z.o like"w*";system"echo 1"];                                                     / check if the operating system is windows, and call a system command to avoid colour bugs
@@ -30,8 +30,7 @@ init:{                                                                          
     `L  ;((0 -1;0 0;0 1;1 -1);(-1 -1;-1 0;0 0;1 0);(-1 1;0 -1;0 0;0 1);(-1 0;0 0;1 0;1 1));
     `T  ;((0 -1;0 0;0 1;1 0);(-1 0;0 -1;0 0;1 0);(-1 0;0 -1;0 0;0 1);(-1 0;0 0;0 1;1 0));
     `S  ;4#((0 0;0 1;1 -1;1 0);(-1 -1;0 -1;0 0;1 0));
-    `Z  ;4#((0 -1;0 0;1 0;1 1);(-1 0;0 -1;0 0;1 -1))
-   );
+    `Z  ;4#((0 -1;0 0;1 0;1 1);(-1 0;0 -1;0 0;1 -1)));
 
   .state.colours:(!/)flip 2 cut                                                                 / make a dictionary of all shapes to colours, i think more colours can be used using a
    (`I  ;`$"\033[36m",.op.b,"\033[0m";  `O  ;`$"\033[33m",.op.b,"\033[0m";                      / more complicates ascii code, but if it isnt broken, dont fix it
@@ -41,7 +40,20 @@ init:{                                                                          
     `G  ;`$"\033[37m",.op.b,"\033[0m");
 
   .state.gravity:`s#(til[11],13 16 19 29)!48 43 38 33 28 23 18 13 8 6 5 4 3 2 1;                / make a step dictionary for the falling speeds (gravity) for each level(s)
-  .state[`menu_main`in_game`menu_hiscores`game_end]:1000b;                                      / set the state of which menu/screen we are looking at
+  .state.menu.main:1b;                                                                          / set the location to the main menu (and initailise the global variable)
+  .state.menu[`in_game`hiscores`game_end]:000b;                                                 / set the locations of all other menus that we are not in
+
+  .state.cursor:0;                                                                              / initialise where the cursor is
+  .state.menu.main_start:{.state.menu[`main`in_game`game_end]:010b;start[]};                    / set the in game location and start the game
+  .state.menu.main_exit:{exit 0};                                                               / exit the game if the exit option was selected
+  .state.menu.main_hi_score:{.state.menu[`main`hiscores`rhs]:010b;.state.cursor:0;hi_scores[]}; / set the hi scores location, reset the cursor, and go to the hi scores
+
+  .state.menu.hiscores_return:{.state.menu[`hiscores`main]:01b;.state.cursor:0;main_menu[]};    / set the main menu location, reset the cursor, and go to the main menu
+  .state.menu.hiscores_reset:{reset_hi_scores[]};                                               / if the reset hi score option was selected, either confirm or delete the hi scores
+
+  .state.menu.game_end_retry:{.state.menu[`game_end`in_game]:01b;start[]};                      / set the in game location and restart the game
+  .state.menu.game_end_return:{.state.menu[`game_end`main]:01b;.state.cursor:0;main_menu[]};    / set the main menu location, reset the cursor, and go to the main menu
+
   main_menu[];                                                                                  / start up the game
  };
 
@@ -51,7 +63,7 @@ print_screen:{                                                                  
   r:@[r;6 7;,;-9$("LEVEL";string .state.level)];                                                / append the current level on on the 5th and 6th row
   r:@[r;9 10;,;-9$("LINES";string .state.lines)];                                               / append the current lines cleared on the 8th and 9th row
   r:@[r;12 13 14 15 16;,;(raze/')string 2#''.state.np_grid];                                    / below the lines, display the next piece, this piece has there own little grid
-  if[.state.game_end;r:$[.state.new_hi_score;gen_new_hiscore_screen r;gen_end_screen r]];       / if the game end is triggered, overlay the game end message
+  if[.state.menu.game_end;r:$[.state.new_hi_score;gen_new_hiscore_screen r;gen_end_screen r]];  / if the game end is triggered, overlay the game end message
   -1{z[0],(y,/:x),z 1}[r]..state`h_offset`v_offset;                                             / add the horizontal and vertical offsets to make the grid central
  };
 
@@ -63,10 +75,9 @@ gen_end_screen:{                                                                
   r:@[r;9;f[7 8 9 10 11 12;"PLEASE"]];                                                          / assign PLEASE below
   r:@[r;10;f[8 9 10;"TRY"]];                                                                    / assign TRY below that
   r:@[r;11;f[9 10 11 12 13 15;("A";"G";"A";"I";"N";("\342\231\245";"\003").op.win)]];           / assign AGAIN ♥ below that, again awkward because the heart has 3/1 characters
-  r:@[r;13;f[7 8 9 10 11 13 15 16;"EnterNto"]];                                                 / from here on, simply assign text to appropriate rows and cols
-  r:@[r;14;f[7 8 9 11 12 13 14 15;"tryagain"]];
-  r:@[r;16;f[7 8 9 10 11 13 15 16;"EnterXto"]];
-  :@[r;17;f[7 8 10 11 13 14 15 16;"gotomenu"]];
+  r:@[r;13;f[9 10 11 12 13;"RETRY"]];                                                           / assign the RETRY menu option
+  r:@[r;16;f[7 8 9 10 12 13 14 15;"MAINMENU"]];                                                 / assign the MAIN MENU option
+  :(@[r;14;f[9+til 5;5#"^"]];@[r;17;f[7+til 9;9#"^"]]).state.cursor;                            / assign where the cursor is going to sit and return
  };
 
 gen_new_hiscore_screen:{                                                                        / if a new hi score is acheived, we want this to flash up before the end game screen
@@ -106,14 +117,14 @@ drop_piece:{                                                                    
     .[`.state.grid;;:;.state.colours .state.piece]each .state.active;                           /   otherwise, the piece is locked in and is reassigned the the grid
     if[any r:all each .state.colours[`B]<>-21#-1_.state.grid;row_complete r];                   /   are any rows complete? if so, we need to get rid of them
     new_piece[];                                                                                /   once the check is complete, we can generate a new piece and begin dropping it again
-    :();                                                                                        /   finally leave early
+    :();                                                                                        /   finally leave early, so that the drop_piece function can run again before outputting
   ];
   .[`.state.grid;;:;.state.colours .state.piece]each .state.active;                             / all the spaces below were black, and the piece just drops a row, assign it to the grid
   print_screen .state.grid;                                                                     / output the current state to console
  };
 
 row_complete:{                                                                                  / this runs if 1 or more rows are full, we need to get rid of them and add up scores
-  .state.menu_main:1b;                                                                          / replicate the menu state to disable all key inputs, otherwise the new block can be moved
+  .state.menu.in_game:0b;                                                                       / pretend we are not in a game to disable .z.pi inputs
   c:@[.state.grid;w;:;e:count[w:1+where x]#enlist {x,(10#y),x}..state.colours`G`B];             / make a copy of the grid where the completed rows are replaced with blank rows
   do[3;                                                                                         / a naughty way of making the rows that are completed flash
     print_screen c;                                                                             / output the screen with the blank rows to console
@@ -128,11 +139,11 @@ row_complete:{                                                                  
   .state.lines+:sum x;                                                                          / update the lines completed
   .state.score+:(1 2 3 4i!40 100 300 1200*.state.level+1)sum x;                                 / update the score BEFORE the level, since the rows were completed on the previous level
   .state.level:.state.lines div 10;                                                             / then safely update the levels (can make something smarter than levelling up every 10 lines)
-  .state.menu_main:0b;                                                                          / re-enable all key inputs (could have a disable all input var, but this will do)
+  .state.menu.in_game:1b;                                                                       / re-enable all key inputs
  };
 
 game_over:{                                                                                     / if the game is over, we want to stop everything and finalise the grid
-  .state[`in_game`game_end]:01b;                                                                / set the state to game end, so that the appropriate game end screen is displayed
+  .state.menu[`in_game`game_end]:01b;                                                           / set the state to game end, so that the appropriate game end screen is displayed
   .[`.state.grid;;:;.state.colours .state.piece]each 1 0+/:.state.active;                       / drop the current piece anyway and set it to the grid (like the nes version)
   hs:("JJJJS";enlist",")0:`:hiscore.csv;                                                        / pull up the hi scores
   if[.state.new_hi_score:(.state.score>=min hs`score)|0N in hs`score;                           / is our score equal to or higher then the lowest hi score, or are there empty spots?
@@ -147,7 +158,7 @@ game_over:{                                                                     
 
 commit_hi_score:{
   .state.new_hi_score:0b;                                                                       / disable the new hi score state so we dont repeat this action
-  if[not count -1_x;x:(3?.Q.a),"\n"];                                                           / if the user entered nothing, then generate 3 random letters in true arcade style
+  if[not count -1_trim x;x:(3?.Q.a),"\n"];                                                      / if the user entered nothing, then generate 3 random letters in true arcade style
   .state.hiscores:update name:`$10$-1_x from .state.hiscores where pos=.state.hiscore_rank;     / update the name of the new hi score
   `:hiscore.csv 0:csv 0:.state.hiscores;                                                        / overwrite the old hi scores with the new record added
  };
@@ -159,11 +170,13 @@ main_menu:{                                                                     
   l4:"BBBTBBBOBBBBBBJBBBZBZBBBIBBBBBSB";
   l5:"BBBTBBBOOOOBBBJBBBZBBZBIIIBSSSSB";
   logo:(raze/')string 2#''.state.colours`$''(l1;l2;l3;l4;l5);                                   / convert the text strings to their colours blocks and join them
-  i:("";"";"   Enter N to start a new game     Enter H to go to hi scores";"";(25#" "),"Enter X to exit"); / add a couple of empty lines followed by the menu options
-  c:("";"";(25#" "),("\302\251";"\270")[.op.win]," 1989 Nintendo");                             / add a couple of empty lines followed by the copyright info, getting right code from os
+  opts:(19#" ")sv("    START";"HI SCORES";"QUIT  ");                                            / add an empty line followed by the menu options
+  i:{x[0],1+last[x]-x 0}each where[n:not deltas[a]in 1 2]cut a:where opts<>" ";                 / weird way to find where the menu options are and get the first index and how many chars
+  cursor:@[;.state.cursor]{(x#" "),y#"^"}.'i;                                                   / generate the string for the cursor line, and position it under the current option
+  copy:((18#" "),"Version 1.0.0    "),("\302\251";"\270")[0]," 1989 Nintendo";                  / add a couple of empty lines followed by the copyright info, getting right code from os
   v_pad:div[-10+.op.rows;2];                                                                    / allocate padding to put above and below the logo, so as it is central
   h_pad:floor[(.op.cols-64)%2]#" ";                                                             / allocate padding to put in front of the logo to make it in the middle of the screen
-  -1 ((v_pad+5)#enlist""),(h_pad,/:logo,i,c),(v_pad-5)#enlist"";                                / join them all together and output it to the console
+  -1 ((v_pad+5)#enlist""),(h_pad,/:logo,("";"";opts;cursor;"";"";copy)),(v_pad-5)#enlist"";           / join them all together and output it to the console
  };
 
 hi_scores:{                                                                                     / function to create a fancy hi scores screen
@@ -177,16 +190,17 @@ hi_scores:{                                                                     
   scores:" "sv'flip@[scores;1 2 3 4;{" ",-10$" ",x}'];                                          / for each score and name, pad out thr string so it is at most 10 characters long
   head:"    "," "sv -11$("score";"lines";"level";"name");                                       / make the headers for each column
   main:hs,("";"";p,head),(p:10#" "),/:scores;                                                   / join them all together with some padding and blank lines
-  mo:"    Enter X to return to main menu           Enter R to clear the hiscores";              / add the hi score menu options
-  if[.state.rhs;mo:"    Enter X to return to main menu             Enter R again to confirm"];  / if we are confirming the reset of hi scores, change the menu options slightly
+  opts:"    ",(41#" ")sv("RETURN TO MENU";("RESET HI SCORES";" ARE YOU SURE?").state.menu.rhs); / join up the menu options, and check if we are in the normal or resetting state
+  i:{x[0],1+last[x]-x 0}each where[n:not deltas[a]in 1 2]cut a:where opts<>" ";                 / weird way to find where the menu options are and get the first index and how many chars
+  cursor:@[;.state.cursor]{(x#" "),y#"^"}.'i;                                                   / generate the string for the cursor line, and position it under the current option
   h_pad:floor[(.op.cols-78)%2]#" ";                                                             / allocate padding to put above and below the screen, so as it is central
   v_pad:div[.op.rows-24;2]#enlist"";                                                            / allocate padding to put in front of the screen to make it in the middle of the screen
-  -1 v_pad,(h_pad,/:main,("";mo)),2_v_pad;                                                      / join them all together and output it to the console
+  -1 v_pad,(h_pad,/:main,("";opts;cursor)),2_v_pad;                                             / join them all together and output it to the console
  };
 
 reset_hi_scores:{
-  if[.state.rhs;`:hiscore.csv 0:csv 0:([]pos:1+til 16;score:n;lines:n;level:n:16#0N;name:16#`)]; / if the user has confirmed deletion, overwrite the hi scores with an empty table
-  .state.rhs:not .state.rhs;                                                                    / flip the state to on if we are confirming the deletion, or off if deletion happened
+  if[.state.menu.rhs;`:hiscore.csv 0:csv 0:([]pos:1+til 16;score:n;lines:n;level:n:16#0N;name:16#`)]; / if the user has confirmed deletion, overwrite the hi scores with an empty table
+  .state.menu.rhs:not .state.menu.rhs;                                                          / flip the state to on if we are confirming the deletion, or off if deletion happened
   hi_scores[];                                                                                  / in either case reprint the hi scores with the confirmation message/cleared hi scores
  };
 
@@ -233,30 +247,33 @@ rotate_piece:{                                                                  
  };
 
 .z.pi:{                                                                                         / user input handler, only 1 check should pass, but leave early everytime anyway
-  if[.state.menu_main;                                                                          / if we are on the menu screen
-    $[x like"[nN]*";[.state[`menu_main`in_game`game_end]:010b;start[]];                         /   give the option to start a game
-      x like"[xX]*";exit 0;                                                                     /   give the option to exit the game
-      x like"[hH]*";[.state[`menu_main`menu_hiscores`rhs]:010b;hi_scores[]];                    /   and give an option to go to the hi score menu screen
+  if[.state.menu.main;                                                                          / if we are on the menu screen
+    $[x like"[aA]*";[.state.cursor:0|2&.state.cursor-1;main_menu[]];                            /   move the cursor to the left
+      x like"[dD]*";[.state.cursor:0|2&.state.cursor+1;main_menu[]];                            /   move the cursor to the right
+      x~enlist"\n";.state.menu[`main_start`main_hi_score`main_exit][.state.cursor][];           /   execute the option indicated by the cursor
       ::];                                                                                      /   and nothing else
-    :()];                                                                                       /   finally leave earlu to avoid other checks running
-  if[.state.in_game;                                                                            / if we are in the game
+    :()];                                                                                       /   finally leave early to avoid other checks running
+  if[.state.menu.in_game;                                                                       / if we are in the game
     $[x like"[aA]*";move -1;                                                                    /   if the user pressed a, then move the active pieve to the left
       x like"[dD]*";move 1;                                                                     /   if the user pressed d, then move the active piece to the right
-      x like"[sS]*";drop_piece[];                                                               /   if the user pressed s, we want to softly drop the active piece (more for debugging)
-      x like"[xX]*";[.state[`menu_main`in_game]:10b;system"t 0";main_menu[]];                   /   if the user pressed x, stop .z.ts, go back to the main menu
-      x like"[nN]*";start[];                                                                    /   if the user pressed n, restart the game (more for debugging)
+      x like"[sS]*";drop_piece[];                                                               /   if the user pressed s, we want to softly drop the active piece one line
+      x like"[xX]*";[.state.menu[`main`in_game]:10b;system"t 0";main_menu[]];                   /   if the user pressed x, stop .z.ts, go back to the main menu
+      x like"[rR]*";start[];                                                                    /   if the user pressed n, restart the game
       x like" *";slam[];                                                                        /   if the user pressed the space bar, hard drop the active pieve
-      rotate_piece[]];                                                                          /   if anything else was entered or just enter was hit, rotate the active piece clockwise
-    :()];                                                                                       /   finally leave early to avoid any other checks running
-  if[.state.menu_hiscores;                                                                      / if we are on the hi score menu
-    $[x like"[xX]*";[.state[`menu_hiscores`menu_main]:01b;;main_menu[]];                        /   give the option to quit, and disable the hiscore menu input options
-      x like"[rR]*";reset_hi_scores[];                                                          /   first ask if the user is sure, then reset if r is hit again
+      x~enlist"\n";rotate_piece[];                                                              /   if just enter was hit, rotate the active piece clockwise
       ::];                                                                                      /   and nothing else
     :()];                                                                                       /   finally leave early to avoid any other checks running
-  if[.state.game_end;                                                                           / if we are on the game end screen
+  if[.state.menu.hiscores;                                                                      / if we are on the hi score menu
+    $[x like"[aA]*";[.state.cursor:0|1&.state.cursor-1;hi_scores[]];                            /   move the cursor to the left
+      x like"[dD]*";[.state.cursor:0|1&.state.cursor+1;hi_scores[]];                            /   move the cursor to the right
+      x~enlist"\n";.state.menu[`hiscores_return`hiscores_reset][.state.cursor][];               /   execute the option indicated by the cursor
+      ::];                                                                                      /   and nothing else
+    :()];                                                                                       /   finally leave early to avoid any other checks running
+  if[.state.menu.game_end;                                                                      / if we are on the game end screen
     if[.state.new_hi_score;commit_hi_score x;print_screen .state.grid;:()];                     /   if there is a new hi score, use the user input to assign a name to the new high score
-    $[x like"[nN]*";[.state[`game_end`in_game]:01b;start[]];                                    /   otherwise continue as normal, and have the user either restart the game
-      x like"[xX]*";[.state[`game_end`menu_main]:01b;main_menu[]];                              /   or exit the to the main menu
+    $[x like"[wW]*";[.state.cursor:0|1&.state.cursor-1;print_screen .state.grid];               /   move the cursor to up
+      x like"[sS]*";[.state.cursor:0|1&.state.cursor+1;print_screen .state.grid];               /   move the cursor to down
+      x~enlist"\n";.state.menu[`game_end_retry`game_end_return][.state.cursor][];               /   execute the option indicated by the cursor
       ::];                                                                                      /   and nothing else
     :()];                                                                                       /   finally return early (i know this is the last function, but keep this for continuity)
  };

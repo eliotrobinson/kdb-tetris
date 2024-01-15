@@ -197,9 +197,10 @@ hi_scores:{                                                                     
   -1 v_pad,(h_pad,/:main,("";opts;cursor)),2_v_pad;                                             / join them all together and output it to the console
  };
 
-reset_hi_scores:{
-  if[.state.menu.rhs;`:hiscore.csv 0:csv 0:([]pos:1+til 16;score:n;lines:n;level:n:16#0N;name:16#`)]; / if the user has confirmed deletion, overwrite the hi scores with an empty table
-  .state.menu.rhs:not .state.menu.rhs;                                                          / flip the state to on if we are confirming the deletion, or off if deletion happened
+reset_hi_scores:{                                                                               / function to fully clear the hi scores with confirmation functionality
+  if[all null first(" J";",")0:f:`hiscore.csv;:()];                                             / if the hi scores are already empty, dont bother doing anything and leave early
+  if[.state.menu.rhs;f 0:csv 0:([]pos:1+til 16;score:n;lines:n;level:n:16#0N;name:16#`)];       / if the user has confirmed deletion, overwrite the hi scores with an empty table
+  .state.menu.rhs:not .state.menu.rhs;                                                          / flip the (r)eset (h)i (s)core state if we are confirming deletion, or deletion happened
   hi_scores[];                                                                                  / in either case reprint the hi scores with the confirmation message/cleared hi scores
  };
 
